@@ -138,6 +138,20 @@
             <button id="export">⤓ Export PNG</button>
             <button id="exportsvg">⤓ Export SVG</button>
           </div>
+          <div class="row">
+            <span class="lbl">Animated GIF</span>
+            <select id="gsize" title="GIF size (longest edge)">
+              <option value="480">480px</option><option value="640" selected>640px</option><option value="800">800px</option>
+            </select>
+            <select id="gfps" title="GIF frame rate">
+              <option value="15">15 fps</option><option value="20" selected>20 fps</option><option value="30">30 fps</option>
+            </select>
+            <button id="exportgif">⤓ Export GIF</button>
+          </div>
+          <div class="row">
+            <span class="lbl">Video (best quality)</span>
+            <button id="exportvid" title="Records the reveal as MP4 (Safari) or WebM (Chrome/Firefox)">⤓ Export video</button>
+          </div>
         </div>
       </details>
 
@@ -160,6 +174,7 @@
   </div>
   <button class="rec-exit" id="rec-exit">Exit recording (Esc)</button>
 
+<script src="vendor/gif.js"></script>
 <script>
 (function(){
   "use strict";
@@ -219,7 +234,8 @@
   const loopEl=$('loop'),satEl=$('sat'),flyEl=$('fly'),bodyEl=$('body'),occludeEl=$('occlude'),
         starsEl=$('stars'),wmOnEl=$('wm'),customBgEl=$('cbg'),bgcolorEl=$('bgcolor'),transparentEl=$('tr'),
         customLineEl=$('lc'),linecolorEl=$('linecolor'),
-        aspectEl=$('aspect'),resEl=$('res'),stageEl=$('stage'),viewportEl=$('viewport');
+        aspectEl=$('aspect'),resEl=$('res'),stageEl=$('stage'),viewportEl=$('viewport'),
+        gsizeEl=$('gsize'),gfpsEl=$('gfps');
   const lineHex=()=>customLineEl.checked?linecolorEl.value:theme().line;
 
   // ---------- canvas ----------
@@ -394,16 +410,17 @@
     return Math.min(1,Math.max(0,(globalWall-start)/span));
   }
 
-  function frame(now){
-    if(!startT)startT=now;
+  // draw one frame. wallO!=null forces a specific reveal progress (used by GIF export).
+  function drawScene(now,wallO){
+    if(wallO==null && !startT)startT=now;
     const dur=parseFloat(durEl.value),N=parseInt(numEl.value,10);
     const roll=parseFloat(rollEl.value)*D2R;
     const vp=viewParams();vp.psi=parseFloat(psiEl.value)*D2R;
-    const tsec=(now-startT)/1000;
-    const wall=Math.min(tsec/dur,1);
+    const tsec=wallO!=null?wallO*dur:(now-startT)/1000;
+    const wall=Math.min(wallO!=null?wallO:tsec/dur,1);
 
     ctx.setTransform(DPR,0,0,DPR,0,0);
-    background(now);
+    background(wallO!=null?tsec*1000:now);
     drawBody(vp,0,roll);
 
     for(let k=0;k<N;k++){
@@ -422,9 +439,12 @@
         }
       }
     }
-
     vignette();
     drawWordmark();
+    return wall;
+  }
+  function frame(now){
+    const wall=drawScene(now);
     if(wall>=1&&loopEl.checked)startT=now;
     rafId=requestAnimationFrame(frame);
   }
@@ -483,6 +503,53 @@
     download(url,'p78-orbit.svg');setTimeout(()=>URL.revokeObjectURL(url),1500);
   }
   function download(href,name){const a=document.createElement('a');a.href=href;a.download=name;a.click();}
+
+  // record the reveal to video (MP4 if supported, else WebM) — full display quality
+  function bestVideoMime(){
+    const opts=['video/mp4;codecs=h264','video/mp4','video/webm;codecs=vp9','video/webm;codecs=vp8','video/webm'];
+    for(const m of opts) if(window.MediaRecorder&&MediaRecorder.isTypeSupported&&MediaRecorder.isTypeSupported(m)) return m;
+    return '';
+  }
+  function exportVideo(){
+    const mime=bestVideoMime();
+    if(!mime){alert('Video recording not supported in this browser. Use GIF instead.');return;}
+    const btn=$('exportvid'),orig=btn.textContent;
+    const fps=30,dur=parseFloat(durEl.value),total=(dur+1.0)*1000;
+    const stream=canvas.captureStream(fps);
+    let rec;try{rec=new MediaRecorder(stream,{mimeType:mime,videoBitsPerSecond:16000000});}catch(e){rec=new MediaRecorder(stream);}
+    const chunks=[];rec.ondataavailable=e=>{if(e.data&&e.data.size)chunks.push(e.data);};
+    const wasLoop=loopEl.checked;loopEl.checked=false;
+    rec.onstop=()=>{loopEl.checked=wasLoop;btn.textContent=orig;btn.disabled=false;
+      const blob=new Blob(chunks,{type:mime}), ext=mime.indexOf('mp4')>=0?'mp4':'webm';
+      const url=URL.createObjectURL(blob);download(url,'p78-orbit.'+ext);setTimeout(()=>URL.revokeObjectURL(url),3000);};
+    restart();rec.start();
+    btn.textContent='Recording…';btn.disabled=true;
+    setTimeout(()=>{if(rec.state!=='inactive')rec.stop();},total);
+  }
+
+  // animated GIF of the reveal (then a short hold), looping
+  function exportGIF(){
+    if(typeof GIF==='undefined'){alert('GIF encoder not loaded yet — try again in a moment.');return;}
+    const btn=$('exportgif'), orig=btn.textContent;
+    const fps=parseInt(gfpsEl.value,10)||20, dur=parseFloat(durEl.value);
+    const longest=parseInt(gsizeEl.value,10)||640, ar=W/H;
+    const tw=ar>=1?longest:Math.round(longest*ar), th=ar>=1?Math.round(longest/ar):longest;
+    const frames=Math.max(2,Math.round(dur*fps)), hold=Math.round(0.9*fps), delay=Math.round(1000/fps);
+    const oc=document.createElement('canvas');oc.width=tw;oc.height=th;const octx=oc.getContext('2d');
+    const sav={ctx,W,H,DPR,panX,panY,wmX,wmY,startT};
+    const f=th/H;
+    ctx=octx;DPR=1;W=tw;H=th;panX*=f;panY*=f;wmX*=f;wmY*=f;buildStarfield();
+    const gif=new GIF({workers:2,quality:10,width:tw,height:th,repeat:0,workerScript:'vendor/gif.worker.js'});
+    for(let i=0;i<frames;i++){drawScene(0,frames>1?i/(frames-1):1);gif.addFrame(octx,{copy:true,delay});}
+    for(let i=0;i<hold;i++){drawScene(0,1);gif.addFrame(octx,{copy:true,delay});}
+    ctx=sav.ctx;W=sav.W;H=sav.H;DPR=sav.DPR;panX=sav.panX;panY=sav.panY;wmX=sav.wmX;wmY=sav.wmY;startT=sav.startT;buildStarfield();
+    gif.on('progress',p=>{btn.textContent='Rendering '+Math.round(p*100)+'%';});
+    gif.on('finished',blob=>{const url=URL.createObjectURL(blob);download(url,'p78-orbit.gif');
+      setTimeout(()=>URL.revokeObjectURL(url),3000);btn.textContent=orig;});
+    btn.textContent='Rendering 0%…';btn.disabled=true;
+    gif.on('finished',()=>{btn.disabled=false;});
+    gif.render();
+  }
 
   // ---------- state: presets + share ----------
   function getState(){
@@ -566,6 +633,8 @@
 
   $('export').onclick=exportPNG;
   $('exportsvg').onclick=exportSVG;
+  $('exportgif').onclick=exportGIF;
+  $('exportvid').onclick=exportVideo;
 
   $('psave').onclick=()=>{const n=$('pname').value.trim();if(!n)return;const o=loadPresets();o[n]=getState();savePresets(o);refreshPresetList();$('psel').value=n;};
   $('psel').onchange=()=>{const n=$('psel').value;if(n){const o=loadPresets();if(o[n])setState(o[n]);}};
