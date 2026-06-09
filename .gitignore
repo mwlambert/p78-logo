@@ -1,0 +1,8 @@
+# Internal brand assets — not for public hosting
+P78 Brand Guidelines.html
+logo-socials.png
+
+# OS / editor cruft
+.DS_Store
+*.log
+node_modules/

@@ -1,0 +1,346 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Orbital Logo Animation — Constant Planet Velocity</title>
+<style>
+  body {
+    margin: 0;
+    background: #0a0e1a;
+    color: #e0e6f0;
+    font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 30px 20px;
+    min-height: 100vh;
+    box-sizing: border-box;
+  }
+  h1 { font-weight: 400; font-size: 18px; margin: 0 0 4px 0; opacity: 0.9; }
+  .subtitle { font-size: 13px; opacity: 0.5; margin-bottom: 20px; }
+  .canvas-wrap {
+    background: #0a0e1a;
+    border: 1px solid #1e293b;
+    border-radius: 12px;
+    padding: 20px;
+    width: 100%;
+    max-width: 900px;
+    box-sizing: border-box;
+  }
+  .info-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 12px;
+    font-size: 13px;
+  }
+  .stat { opacity: 0.7; }
+  .stat span { color: #60a5fa; font-variant-numeric: tabular-nums; }
+  button {
+    background: #1e293b;
+    color: #e0e6f0;
+    border: 1px solid #334155;
+    border-radius: 6px;
+    padding: 7px 16px;
+    font-size: 12px;
+    cursor: pointer;
+    font-family: inherit;
+  }
+  button:hover { background: #334155; }
+  svg { width: 100%; height: auto; display: block; border-radius: 8px; }
+  .controls {
+    margin-top: 16px;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    font-size: 13px;
+  }
+  .control { display: flex; flex-direction: column; gap: 6px; }
+  .control label { opacity: 0.7; }
+  .control input[type=range] { width: 100%; }
+  .control .val { color: #60a5fa; font-variant-numeric: tabular-nums; font-weight: 500; }
+  .caption { font-size: 11px; opacity: 0.4; margin-top: 12px; text-align: center; }
+  .toggle-row {
+    display: flex;
+    gap: 16px;
+    margin-top: 12px;
+    font-size: 12px;
+    align-items: center;
+    flex-wrap: wrap;
+    opacity: 0.7;
+  }
+  .toggle-row label { display: flex; align-items: center; gap: 6px; cursor: pointer; }
+  .anchor-line { stroke: #60a5fa; stroke-width: 0.5; stroke-dasharray: 4 4; opacity: 0.3; }
+</style>
+</head>
+<body>
+  <h1>Orbital Logo Animation — Constant Planet Velocity</h1>
+  <div class="subtitle">Ω(t) = arcsin(v_p·t / R) — RAAN accelerates as planet drifts steadily</div>
+
+  <div class="canvas-wrap">
+    <div class="info-row">
+      <div class="stat">RAAN: <span id="raan-val">0°</span> &nbsp;·&nbsp; Orbits drawn: <span id="orbit-count">0</span></div>
+      <button id="replay">Replay</button>
+    </div>
+
+    <svg id="orbit-svg" viewBox="0 0 800 500">
+      <defs>
+        <radialGradient id="sat-glow">
+          <stop offset="0%" stop-color="#fde68a" stop-opacity="1"/>
+          <stop offset="40%" stop-color="#fbbf24" stop-opacity="0.6"/>
+          <stop offset="100%" stop-color="#fbbf24" stop-opacity="0"/>
+        </radialGradient>
+        <filter id="sat-blur" x="-50%" y="-50%" width="200%" height="200%">
+          <feGaussianBlur stdDeviation="2"/>
+        </filter>
+      </defs>
+      <line id="anchor" class="anchor-line" x1="600" y1="60" x2="600" y2="440"/>
+      <g id="orbits"></g>
+      <g id="active-orbit"></g>
+      <circle id="planet-glow" cx="600" cy="250" r="14" fill="none" stroke="#e0e6f0" stroke-width="0.5" opacity="0.3"/>
+      <circle id="planet" cx="600" cy="250" r="8" fill="#e0e6f0" stroke="#94a3b8" stroke-width="0.5"/>
+      <circle id="sat-halo" cx="600" cy="250" r="20" fill="url(#sat-glow)"/>
+      <circle id="sat-dot" cx="600" cy="250" r="6" fill="#fef3c7" filter="url(#sat-blur)"/>
+      <circle id="sat-core" cx="600" cy="250" r="3.5" fill="#fff"/>
+    </svg>
+
+    <div class="controls">
+      <div class="control">
+        <label>Duration: <span class="val" id="duration-val">10</span> sec</label>
+        <input type="range" id="duration" min="3" max="20" value="10">
+      </div>
+      <div class="control">
+        <label>Number of orbits: <span class="val" id="num-orbits-val">22</span></label>
+        <input type="range" id="num-orbits" min="8" max="50" value="22">
+      </div>
+    </div>
+
+    <div class="toggle-row">
+      <label><input type="checkbox" id="show-planet" checked> Show planet</label>
+      <label><input type="checkbox" id="show-trail"> Satellite trail</label>
+      <label><input type="checkbox" id="show-anchor"> Show anchor line</label>
+    </div>
+
+    <div class="caption">Planet drifts at constant speed; RAAN starts slow, accelerates, ends near 90°.</div>
+  </div>
+
+<script>
+(function(){
+  const orbitsGroup = document.getElementById('orbits');
+  const activeGroup = document.getElementById('active-orbit');
+  const planet = document.getElementById('planet');
+  const planetGlow = document.getElementById('planet-glow');
+  const satHalo = document.getElementById('sat-halo');
+  const satDot = document.getElementById('sat-dot');
+  const satCore = document.getElementById('sat-core');
+  const raanLabel = document.getElementById('raan-val');
+  const orbitCountLabel = document.getElementById('orbit-count');
+  const replayBtn = document.getElementById('replay');
+  const anchorLine = document.getElementById('anchor');
+
+  const durationSlider = document.getElementById('duration');
+  const numOrbitsSlider = document.getElementById('num-orbits');
+  const showPlanet = document.getElementById('show-planet');
+  const showTrail = document.getElementById('show-trail');
+  const showAnchor = document.getElementById('show-anchor');
+
+  const durationVal = document.getElementById('duration-val');
+  const numOrbitsVal = document.getElementById('num-orbits-val');
+
+  let rafId = null;
+  let trailPoints = [];
+
+  // ===== EXACT MATH (Option B) =====
+  // Constraint: P(t) + R·sin(Ω(t)) = X_anchor
+  // Constant planet velocity: P(t) = X_anchor − v_p·t
+  // → sin(Ω(t)) = v_p·t / R
+  // → Ω(t) = arcsin(v_p·t / R)
+  //
+  // We want Ω to reach Ω_max (just under 90°) at t = T (total duration).
+  // So: v_p = R · sin(Ω_max) / T
+  //
+  // RAAN rate: ω(t) = v_p / (R·cos(Ω(t)))   — starts at v_p/R, blows up near 90°
+  // This is why we stop at Ω_max < 90°.
+
+  const RAAN_MAX_DEG = 88;       // stop just shy of 90° to avoid infinite RAAN rate
+  const R = 130;
+  const X_ANCHOR = 600;
+  const cy = 250;
+
+  function syncLabels(){
+    durationVal.textContent = durationSlider.value;
+    numOrbitsVal.textContent = numOrbitsSlider.value;
+  }
+  [durationSlider, numOrbitsSlider].forEach(el => el.addEventListener('input', syncLabels));
+
+  function updatePlanetVisual(){
+    planet.style.display = showPlanet.checked ? '' : 'none';
+    planetGlow.style.display = showPlanet.checked ? '' : 'none';
+  }
+  showPlanet.addEventListener('change', updatePlanetVisual);
+  updatePlanetVisual();
+
+  showAnchor.addEventListener('change', () => {
+    anchorLine.style.display = showAnchor.checked ? '' : 'none';
+  });
+  anchorLine.style.display = showAnchor.checked ? '' : 'none';
+
+  function orbitPath(cx, raanDeg, segments){
+    const raan = raanDeg * Math.PI / 180;
+    const sinR = Math.sin(raan);
+    let d = '';
+    for(let i = 0; i <= segments; i++){
+      const theta = (i / segments) * 2 * Math.PI;
+      const x = R * Math.sin(theta) * sinR;
+      const y = R * Math.cos(theta);
+      d += (i === 0 ? 'M' : 'L') + (cx + x).toFixed(2) + ' ' + (cy - y).toFixed(2) + ' ';
+    }
+    return d;
+  }
+
+  function partialOrbitPath(cx, raanDeg, progress, segments){
+    const raan = raanDeg * Math.PI / 180;
+    const sinR = Math.sin(raan);
+    const endIdx = Math.max(1, Math.floor(progress * segments));
+    let d = '';
+    for(let i = 0; i <= endIdx; i++){
+      const theta = (i / segments) * 2 * Math.PI;
+      const x = R * Math.sin(theta) * sinR;
+      const y = R * Math.cos(theta);
+      d += (i === 0 ? 'M' : 'L') + (cx + x).toFixed(2) + ' ' + (cy - y).toFixed(2) + ' ';
+    }
+    return d;
+  }
+
+  function satellitePos(cx, raanDeg, theta){
+    const raan = raanDeg * Math.PI / 180;
+    const x = R * Math.sin(theta) * Math.sin(raan);
+    const y = R * Math.cos(theta);
+    return { x: cx + x, y: cy - y };
+  }
+
+  function animate(){
+    if(rafId) cancelAnimationFrame(rafId);
+
+    const NUM_ORBITS = parseInt(numOrbitsSlider.value);
+    const DURATION_SEC = parseInt(durationSlider.value);
+    const DURATION_MS = DURATION_SEC * 1000;
+    const SEGMENTS = 120;
+
+    // Derive v_p so that Ω reaches RAAN_MAX_DEG exactly at t = DURATION
+    const sinMax = Math.sin(RAAN_MAX_DEG * Math.PI / 180);
+    const v_p = R * sinMax / DURATION_SEC;   // pixels per second
+
+    orbitsGroup.innerHTML = '';
+    activeGroup.innerHTML = '';
+    trailPoints = [];
+
+    const startTime = performance.now();
+
+    // P(t_sec) = X_ANCHOR − v_p · t_sec
+    function planetX(t_sec){
+      return X_ANCHOR - v_p * t_sec;
+    }
+
+    // Ω(t_sec) = arcsin(v_p · t_sec / R)
+    function raanRad(t_sec){
+      const s = v_p * t_sec / R;
+      return Math.asin(Math.min(1, Math.max(-1, s)));
+    }
+
+    function raanDeg(t_sec){
+      return raanRad(t_sec) * 180 / Math.PI;
+    }
+
+    // Orbital phase: satellite goes around once per "orbit slot"
+    // Total orbits drawn across DURATION = NUM_ORBITS, so period = DURATION / NUM_ORBITS
+    const period_sec = DURATION_SEC / NUM_ORBITS;
+
+    function orbitInfo(i){
+      // Orbit i (1..NUM_ORBITS) is "completed" at t = i * period
+      const t_i = i * period_sec;
+      return { cx: planetX(t_i), raanDeg: raanDeg(t_i) };
+    }
+
+    function frame(now){
+      const t_sec = Math.min((now - startTime) / 1000, DURATION_SEC);
+      const t = t_sec / DURATION_SEC;
+
+      const px = planetX(t_sec);
+      planet.setAttribute('cx', px);
+      planetGlow.setAttribute('cx', px);
+
+      const orbitProgress = t_sec / period_sec;
+      const fullOrbits = Math.floor(orbitProgress);
+      const partialProgress = orbitProgress - fullOrbits;
+
+      const currentRaan = raanDeg(t_sec);
+      raanLabel.textContent = currentRaan.toFixed(1) + '°';
+      orbitCountLabel.textContent = fullOrbits;
+
+      orbitsGroup.innerHTML = '';
+      activeGroup.innerHTML = '';
+
+      // Completed orbits
+      for(let i = 1; i <= fullOrbits; i++){
+        const { cx, raanDeg } = orbitInfo(i);
+        const path = document.createElementNS('http://www.w3.org/2000/svg','path');
+        path.setAttribute('d', orbitPath(cx, raanDeg, SEGMENTS));
+        path.setAttribute('fill', 'none');
+        path.setAttribute('stroke', '#e0e6f0');
+        path.setAttribute('stroke-width', '1');
+        path.setAttribute('opacity', '0.6');
+        orbitsGroup.appendChild(path);
+      }
+
+      // Active orbit
+      const activeRaan = raanDeg(Math.min((fullOrbits + 1) * period_sec, DURATION_SEC));
+      const activePath = document.createElementNS('http://www.w3.org/2000/svg','path');
+      activePath.setAttribute('d', partialOrbitPath(px, activeRaan, partialProgress, SEGMENTS));
+      activePath.setAttribute('fill', 'none');
+      activePath.setAttribute('stroke', '#60a5fa');
+      activePath.setAttribute('stroke-width', '1.5');
+      activeGroup.appendChild(activePath);
+
+      // Satellite
+      const satTheta = partialProgress * 2 * Math.PI;
+      const sat = satellitePos(px, activeRaan, satTheta);
+      satHalo.setAttribute('cx', sat.x);
+      satHalo.setAttribute('cy', sat.y);
+      satDot.setAttribute('cx', sat.x);
+      satDot.setAttribute('cy', sat.y);
+      satCore.setAttribute('cx', sat.x);
+      satCore.setAttribute('cy', sat.y);
+
+      if(showTrail.checked){
+        trailPoints.push({ x: sat.x, y: sat.y, age: 0 });
+        if(trailPoints.length > 200) trailPoints.shift();
+        for(const tp of trailPoints){ tp.age++; }
+        for(const tp of trailPoints){
+          const trail = document.createElementNS('http://www.w3.org/2000/svg','circle');
+          trail.setAttribute('cx', tp.x);
+          trail.setAttribute('cy', tp.y);
+          trail.setAttribute('r', 1.2);
+          trail.setAttribute('fill', '#fbbf24');
+          trail.setAttribute('opacity', Math.max(0, 1 - tp.age / 60).toFixed(2));
+          activeGroup.appendChild(trail);
+        }
+      } else {
+        trailPoints = [];
+      }
+
+      if(t < 1){
+        rafId = requestAnimationFrame(frame);
+      }
+    }
+
+    rafId = requestAnimationFrame(frame);
+  }
+
+  syncLabels();
+  replayBtn.addEventListener('click', animate);
+  animate();
+})();
+</script>
+</body>
+</html>

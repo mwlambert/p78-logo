@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>P78 — Orbital Logo Experiments</title>
+<style>
+  html,body{margin:0;height:100%;background:#06080d;color:#e7e9e3;
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+  .wrap{max-width:680px;margin:0 auto;padding:64px 24px}
+  h1{font-weight:600;font-size:22px;margin:0 0 4px}
+  p.sub{opacity:.5;font-size:13px;margin:0 0 32px}
+  a.card{display:block;text-decoration:none;color:inherit;border:1px solid #222833;
+    border-radius:12px;padding:18px 20px;margin-bottom:14px;transition:.15s;background:#0d1016}
+  a.card:hover{border-color:#ff5500;transform:translateY(-1px)}
+  a.card.primary{border-color:#ff5500}
+  .t{font-size:15px;font-weight:600}
+  .t .tag{font-size:10px;font-weight:700;color:#1a0f06;background:#ff5500;
+    border-radius:5px;padding:2px 6px;margin-left:8px;vertical-align:middle}
+  .d{font-size:12px;opacity:.55;margin-top:5px;line-height:1.4}
+  footer{opacity:.35;font-size:11px;margin-top:28px}
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>P78 — Orbital Logo</h1>
+    <p class="sub">Live experiments. Each draws the mark with real(ish) orbital mechanics.</p>
+
+    <a class="card primary" href="orbit_animation_constellation.html">
+      <div class="t">Constellation <span class="tag">CURRENT</span></div>
+      <div class="d">A constellation of satellites, each on its own true Keplerian orbit. Spread the orbital elements to sculpt the fan.</div>
+    </a>
+    <a class="card" href="orbit_animation_phys.html">
+      <div class="t">Physical (lunar)</div>
+      <div class="d">One satellite orbiting the Moon, viewed from Earth, RAAN stepping per loop. The honest single-orbit model.</div>
+    </a>
+    <a class="card" href="orbit_animation_3d.html">
+      <div class="t">Idealized 3D</div>
+      <div class="d">A ring rotating about its right-edge axis — matches the static mark exactly (stylized, not 2-body physics).</div>
+    </a>
+    <a class="card" href="orbit_animation_pro.html">
+      <div class="t">Pro pass</div>
+      <div class="d">Early canvas rebuild with bloom, depth and a resolve-to-brand finish.</div>
+    </a>
+
+    <footer>P78 Studio · built with Claude Code</footer>
+  </div>
+</body>
+</html>

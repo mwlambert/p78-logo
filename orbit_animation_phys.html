@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>P78 — Orbital Logo (Physical)</title>
+<style>
+  :root{--orange:#ff5500;--black:#141615;--ink:#e7e9e3;--panel:#11141a;--line:#222833;}
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%}
+  body{background:#06080d;color:var(--ink);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+    display:flex;flex-direction:column;align-items:center;padding:24px 20px 40px;min-height:100vh;}
+  h1{font-weight:500;font-size:16px;letter-spacing:.02em;margin:0 0 2px}
+  .sub{font-size:12px;opacity:.45;margin-bottom:16px;text-align:center;max-width:760px}
+  .stage{position:relative;width:100%;max-width:900px;aspect-ratio:16/10;
+    border-radius:14px;overflow:hidden;border:1px solid var(--line);background:#000;}
+  canvas{position:absolute;inset:0;width:100%;height:100%;display:block}
+  .chrome{width:100%;max-width:900px}
+  .presets{display:flex;gap:8px;flex-wrap:wrap;margin:16px 0 4px}
+  .presets button{background:var(--panel);color:var(--ink);border:1px solid var(--line);
+    border-radius:8px;padding:8px 14px;font-size:12px;cursor:pointer;font-family:inherit;transition:.15s;}
+  .presets button:hover{border-color:#3a4556}
+  .presets button.active{background:var(--orange);color:#1a0f06;border-color:var(--orange);font-weight:600}
+  .controls{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px 22px;margin-top:14px;font-size:12px}
+  .control{display:flex;flex-direction:column;gap:5px}
+  .control label{opacity:.7;display:flex;justify-content:space-between}
+  .control .v{color:#ff9a5c;font-variant-numeric:tabular-nums;font-weight:600}
+  input[type=range]{width:100%;accent-color:var(--orange)}
+  .row{display:flex;gap:14px;align-items:center;flex-wrap:wrap;margin-top:16px;font-size:12px}
+  .row button{background:var(--panel);color:var(--ink);border:1px solid var(--line);
+    border-radius:8px;padding:8px 16px;font-size:12px;cursor:pointer;font-family:inherit;}
+  .row button:hover{border-color:#3a4556}
+  .row label{display:flex;align-items:center;gap:6px;cursor:pointer;opacity:.8}
+  .spacer{flex:1}
+  .hint{font-size:11px;opacity:.4;margin-top:14px;text-align:center}
+  body.rec{padding:0;justify-content:center;background:#000}
+  body.rec .chrome,body.rec h1,body.rec .sub{display:none}
+  body.rec .stage{position:fixed;inset:0;max-width:none;width:100vw;height:100vh;aspect-ratio:auto;border:none;border-radius:0}
+  .rec-exit{position:fixed;top:14px;right:16px;z-index:10;display:none;background:rgba(0,0,0,.4);color:#fff;
+    border:1px solid rgba(255,255,255,.25);border-radius:8px;padding:7px 12px;font-size:11px;cursor:pointer;backdrop-filter:blur(6px)}
+  body.rec .rec-exit{display:block}
+</style>
+</head>
+<body>
+  <h1>P78 — Orbital Logo (Lunar)</h1>
+  <div class="sub">Real satellite orbiting the Moon, viewed from Earth; its RAAN precesses each loop; near-polar view so the Moon hides the far convergence → one-sided fan.</div>
+
+  <div class="stage" id="stage"><canvas id="c"></canvas></div>
+  <button class="rec-exit" id="rec-exit">Exit recording (Esc)</button>
+
+  <div class="chrome">
+    <div class="presets" id="presets"></div>
+    <div class="controls">
+      <div class="control"><label>Duration <span class="v" id="dur-v">12s</span></label>
+        <input type="range" id="dur" min="5" max="24" step="0.5" value="12"></div>
+      <div class="control"><label>Orbits <span class="v" id="orb-v">6</span></label>
+        <input type="range" id="orb" min="3" max="48" value="6"></div>
+      <div class="control"><label>Inclination <span class="v" id="inc-v">90°</span></label>
+        <input type="range" id="inc" min="0" max="90" value="90"></div>
+      <div class="control"><label>View tilt (down pole) <span class="v" id="psi-v">35°</span></label>
+        <input type="range" id="psi" min="0" max="80" value="35"></div>
+      <div class="control"><label>RAAN sweep <span class="v" id="sweep-v">90°</span></label>
+        <input type="range" id="sweep" min="20" max="180" value="90"></div>
+      <div class="control"><label>Orbit radius (×Earth) <span class="v" id="ratio-v">1.6</span></label>
+        <input type="range" id="ratio" min="1.05" max="4" step="0.05" value="1.6"></div>
+      <div class="control"><label>Perspective <span class="v" id="persp-v">0%</span> <span style="opacity:.5">(0 = Earth view)</span></label>
+        <input type="range" id="persp" min="0" max="100" value="0"></div>
+      <div class="control"><label>Roll <span class="v" id="roll-v">0°</span></label>
+        <input type="range" id="roll" min="-180" max="180" value="0"></div>
+    </div>
+    <div class="row">
+      <button id="replay">↻ Replay</button>
+      <label><input type="checkbox" id="loop"> Loop</label>
+      <label><input type="checkbox" id="sat" checked> Satellite</label>
+      <label><input type="checkbox" id="earth"> Moon</label>
+      <label><input type="checkbox" id="occlude"> Occlusion</label>
+      <label><input type="checkbox" id="stars"> Starfield</label>
+      <div class="spacer"></div>
+      <button id="rec">⤢ Recording mode</button>
+    </div>
+    <div class="hint">All knobs are live. Earth fixed; orbits precess and freeze. “Occlusion” hides whatever passes behind Earth.</div>
+  </div>
+
+<script>
+(function(){
+  "use strict";
+  const TWO_PI=Math.PI*2, D2R=Math.PI/180;
+
+  const THEMES={
+    whiteBlack:{label:"White on Black",bgTop:"#0d0f12",bgBot:"#000000",line:"#eef0ea",
+      satGlow:"#cfe0ff",satCore:"#ffffff",stars:true,nebula:false,glow:true,flat:false,resolve:false},
+    spaceBrand:{label:"Space → Brand",bgTop:"#0c1120",bgBot:"#05070e",line:"#ff7a33",
+      satGlow:"#ff7a1f",satCore:"#fff6ec",stars:true,nebula:true,glow:true,flat:false,resolve:false},
+    orangeBlack:{label:"Orange on Black",bgTop:"#16100b",bgBot:"#050403",line:"#ff6a22",
+      satGlow:"#ff6a22",satCore:"#fff1e4",stars:true,nebula:true,glow:true,flat:false,resolve:false},
+    brandFlat:{label:"Brand Flat",bgTop:"#ff5500",bgBot:"#ff5500",line:"#141615",
+      satGlow:"#141615",satCore:"#141615",stars:false,nebula:false,glow:false,flat:true,resolve:false},
+  };
+  let themeKey="whiteBlack";
+  const theme=()=>THEMES[themeKey];
+
+  const canvas=document.getElementById('c'),ctx=canvas.getContext('2d');
+  let DPR=1,W=0,H=0;
+  function resize(){
+    DPR=Math.min(window.devicePixelRatio||1,2.5);
+    const r=canvas.getBoundingClientRect();
+    W=Math.max(2,r.width);H=Math.max(2,r.height);
+    canvas.width=Math.round(W*DPR);canvas.height=Math.round(H*DPR);
+    ctx.setTransform(DPR,0,0,DPR,0,0);buildStarfield();
+  }
+  window.addEventListener('resize',resize);
+
+  // ---------- world / camera ----------
+  // Earth radius a=1 at origin. Camera on +Z at distance D looking toward -Z (≈ the Sun).
+  const A=1, D=6;
+  function viewParams(R){
+    const SCALE=0.62*H*D/(2*R);     // full-orbit diameter ≈ 0.62·H
+    return {SCALE,AX:W*0.6,AY:H*0.5};
+  }
+  // orbit point in world space for argument θ, RAAN Ω, inclination i, view-tilt ψ
+  function orbitPt(R,th,Om,i,psi){
+    const ci=Math.cos(i),si=Math.sin(i),cO=Math.cos(Om),sO=Math.sin(Om),ct=Math.cos(th),st=Math.sin(th);
+    // Earth frame (polar axis = zE): incline about xE, then precess (RAAN) about zE
+    const xE=cO*(R*ct)-sO*(R*st*ci);
+    const yE=sO*(R*ct)+cO*(R*st*ci);
+    const zE=R*st*si;
+    // tilt the whole Earth frame about Y by ψ so the N pole leans toward camera & right
+    const cp=Math.cos(psi),sp=Math.sin(psi);
+    return {X:xE*cp+zE*sp, Y:yE, Z:-xE*sp+zE*cp};
+  }
+  const earthPolePt=(psi)=>({X:Math.sin(psi)*A,Y:0,Z:Math.cos(psi)*A});
+
+  function project(vp,X,Y,Z,persp,roll){
+    const cr=Math.cos(roll),sr=Math.sin(roll);
+    const Xr=X*cr-Y*sr, Yr=X*sr+Y*cr;          // screen roll about view axis
+    const depth=D-Z*persp;                       // persp 0 ⇒ orthographic
+    const sf=vp.SCALE/depth;
+    return {x:vp.AX+Xr/depth*vp.SCALE, y:vp.AY-Yr/depth*vp.SCALE, Z, sf};
+  }
+  // is a world point hidden behind Earth (sphere radius A)?  (orthographic-accurate)
+  function hidden(X,Y,Z){const r2=X*X+Y*Y;return r2<A*A && Z<Math.sqrt(A*A-r2);}
+
+  // ---------- helpers ----------
+  const lerp=(a,b,t)=>a+(b-a)*t;
+  function smoother(t){t=Math.min(1,Math.max(0,t));return t*t*t*(t*(t*6-15)+10);}
+  function hexRGB(h){h=h.replace('#','');return[parseInt(h.slice(0,2),16),parseInt(h.slice(2,4),16),parseInt(h.slice(4,6),16)];}
+  const rgba=(c,a)=>`rgba(${c[0]},${c[1]},${c[2]},${a})`;
+
+  let stars=[];
+  function buildStarfield(){stars=[];const n=Math.round((W*H)/9000);let seed=77;
+    const rnd=()=>{seed=(seed*1103515245+12345)&0x7fffffff;return seed/0x7fffffff;};
+    for(let k=0;k<n;k++)stars.push({x:rnd()*W,y:rnd()*H,r:rnd()*1.1+0.25,a:rnd()*0.5+0.15,par:rnd()*0.5+0.2,tw:rnd()*TWO_PI,sp:rnd()*1.5+0.4});}
+
+  const SEG=140;
+  let startT=0,rafId=null;
+
+  function background(now){
+    const th=theme();const top=hexRGB(th.bgTop),bot=hexRGB(th.bgBot);
+    let bg=ctx.createLinearGradient(0,0,0,H);bg.addColorStop(0,rgba(top,1));bg.addColorStop(1,rgba(bot,1));
+    ctx.fillStyle=bg;ctx.fillRect(0,0,W,H);
+    if(th.nebula){ctx.save();ctx.globalCompositeOperation='lighter';
+      for(const[bx,by,col,al] of [[W*0.7,H*0.35,'#ff6a22',0.10],[W*0.25,H*0.7,'#6f3fa1',0.08]]){
+        let n=ctx.createRadialGradient(bx,by,0,bx,by,Math.max(W,H)*0.5);
+        n.addColorStop(0,rgba(hexRGB(col),al));n.addColorStop(1,'rgba(0,0,0,0)');ctx.fillStyle=n;ctx.fillRect(0,0,W,H);}
+      ctx.restore();}
+    if(th.stars&&starsEl.checked){const drift=(now/1000)*8;ctx.save();ctx.globalCompositeOperation='lighter';
+      for(const s of stars){const x=((s.x-drift*s.par)%W+W)%W;const tw=0.6+0.4*Math.sin(now/1000*s.sp+s.tw);
+        ctx.fillStyle=rgba([220,228,245],s.a*tw);ctx.beginPath();ctx.arc(x,s.y,s.r,0,TWO_PI);ctx.fill();}
+      ctx.restore();}
+  }
+
+  // the Moon: a gray, airless lit sphere (viewed from Earth)
+  function drawEarth(vp,persp,roll){
+    if(!earthEl.checked)return;
+    if(theme().flat)return;                       // brand-flat: no body, pure mark
+    const p=project(vp,0,0,0,persp,roll);const r=A*p.sf;
+    let g=ctx.createRadialGradient(p.x-r*0.22,p.y-r*0.22,r*0.1,p.x,p.y,r);
+    g.addColorStop(0,rgba([214,214,208],1));
+    g.addColorStop(0.65,rgba([150,150,146],1));
+    g.addColorStop(1,rgba([70,70,68],1));         // limb darkening; no atmosphere
+    ctx.fillStyle=g;ctx.beginPath();ctx.arc(p.x,p.y,r,0,TWO_PI);ctx.fill();
+  }
+
+  // one orbit (closed if thEnd omitted, else a partial arc 0→thEnd) at a fixed
+  // RAAN Ω. Solid line; breaks wherever it passes behind the Moon.
+  function strokeOrbit(vp,Om,i,psi,persp,roll,thEnd){
+    const th=theme();const line=hexRGB(th.line);
+    const end=thEnd!=null?thEnd:TWO_PI;
+    const steps=thEnd!=null?Math.max(2,Math.ceil(SEG*end/TWO_PI)):SEG;
+    ctx.lineWidth=1.7*(H/620);ctx.lineCap='round';ctx.lineJoin='round';ctx.strokeStyle=rgba(line,1);
+    const occ=occludeEl.checked;
+    let drawing=false;
+    for(let k=0;k<=steps;k++){
+      const w=orbitPt(vp.R,(k/steps)*end,Om,i,psi);
+      const vis=!(occ&&hidden(w.X,w.Y,w.Z));
+      const p=project(vp,w.X,w.Y,w.Z,persp,roll);
+      if(vis){
+        if(!drawing){ctx.beginPath();ctx.moveTo(p.x,p.y);drawing=true;}
+        else ctx.lineTo(p.x,p.y);
+      }else if(drawing){ctx.stroke();drawing=false;}
+    }
+    if(drawing)ctx.stroke();
+  }
+
+  function drawSatellite(vp,w,persp,roll){
+    const th=theme();const a=1;
+    if(occludeEl.checked&&hidden(w.X,w.Y,w.Z))return;   // eclipsed behind Earth
+    const p=project(vp,w.X,w.Y,w.Z,persp,roll);
+    const glow=hexRGB(th.satGlow),core=hexRGB(th.satCore);
+    ctx.save();if(th.glow)ctx.globalCompositeOperation='lighter';
+    const R=Math.max(4,0.037*p.sf);
+    let gr=ctx.createRadialGradient(p.x,p.y,0,p.x,p.y,R);
+    gr.addColorStop(0,rgba(glow,0.45*a));gr.addColorStop(0.4,rgba(glow,0.16*a));gr.addColorStop(1,'rgba(0,0,0,0)');
+    ctx.fillStyle=gr;ctx.beginPath();ctx.arc(p.x,p.y,R,0,TWO_PI);ctx.fill();ctx.restore();
+    ctx.fillStyle=rgba(core,0.9);ctx.beginPath();ctx.arc(p.x,p.y,Math.max(1,0.007*p.sf),0,TWO_PI);ctx.fill();
+  }
+
+  function vignette(){let v=ctx.createRadialGradient(W/2,H/2,Math.min(W,H)*0.35,W/2,H/2,Math.max(W,H)*0.72);
+    v.addColorStop(0,'rgba(0,0,0,0)');v.addColorStop(1,'rgba(0,0,0,0.45)');ctx.fillStyle=v;ctx.fillRect(0,0,W,H);}
+
+  function frame(now){
+    if(!startT)startT=now;
+    const dur=parseFloat(durEl.value),num=parseInt(orbEl.value,10);
+    const i=parseFloat(incEl.value)*D2R, psi=parseFloat(psiEl.value)*D2R;
+    const sweep=parseFloat(sweepEl.value)*D2R, ratio=parseFloat(ratioEl.value);
+    const persp=parseFloat(perspEl.value)/100, roll=parseFloat(rollEl.value)*D2R;
+    const R=ratio*A;
+    const vp=viewParams(R);vp.R=R;
+
+    const wall=Math.min((now-startT)/(dur*1000),1);
+    const s=smoother(wall);
+    const prog=num*s, full=Math.floor(prog), partial=prog-full;
+    const kActive=Math.min(full+1,num);
+    const OmActive=(kActive/num)*sweep;          // RAAN constant during a loop (steps between loops)
+    const thNow=partial*TWO_PI;
+
+    ctx.setTransform(DPR,0,0,DPR,0,0);
+    background(now);
+    drawEarth(vp,persp,roll);
+
+    // completed orbits: real closed circles, each at its own fixed RAAN
+    for(let k=1;k<=full;k++) strokeOrbit(vp,(k/num)*sweep,i,psi,persp,roll,null);
+
+    // the orbit currently being traced by the satellite (one fixed RAAN)
+    if(wall<1||loopEl.checked){
+      strokeOrbit(vp,OmActive,i,psi,persp,roll,thNow);
+      if(satEl.checked) drawSatellite(vp,orbitPt(R,thNow,OmActive,i,psi),persp,roll);
+    }
+
+    vignette();
+    if(wall>=1&&loopEl.checked)startT=now;
+    rafId=requestAnimationFrame(frame);
+  }
+  function restart(){startT=0;if(rafId)cancelAnimationFrame(rafId);rafId=requestAnimationFrame(frame);}
+
+  // ---------- UI ----------
+  const $=id=>document.getElementById(id);
+  const durEl=$('dur'),orbEl=$('orb'),incEl=$('inc'),psiEl=$('psi'),sweepEl=$('sweep'),
+        ratioEl=$('ratio'),perspEl=$('persp'),rollEl=$('roll');
+  const loopEl=$('loop'),satEl=$('sat'),earthEl=$('earth'),occludeEl=$('occlude'),starsEl=$('stars');
+  const presetsEl=$('presets');
+  const fmt={dur:v=>v+'s',orb:v=>v,inc:v=>v+'°',psi:v=>v+'°',sweep:v=>v+'°',ratio:v=>(+v).toFixed(2),persp:v=>v+'%',roll:v=>v+'°'};
+  [['dur','dur-v'],['orb','orb-v'],['inc','inc-v'],['psi','psi-v'],['sweep','sweep-v'],['ratio','ratio-v'],['persp','persp-v'],['roll','roll-v']]
+    .forEach(([id,lbl])=>{const el=$(id),out=$(lbl);const sync=()=>out.textContent=fmt[id](el.value);el.oninput=sync;sync();});
+  // duration/orbits restart the build; the rest tune live
+  durEl.addEventListener('input',restart);orbEl.addEventListener('input',restart);
+
+  Object.keys(THEMES).forEach(k=>{const b=document.createElement('button');b.textContent=THEMES[k].label;b.dataset.k=k;
+    if(k===themeKey)b.classList.add('active');
+    b.onclick=()=>{themeKey=k;[...presetsEl.children].forEach(c=>c.classList.toggle('active',c.dataset.k===k));};
+    presetsEl.appendChild(b);});
+  $('replay').onclick=restart;
+  const recBtn=$('rec'),recExit=$('rec-exit');
+  const toggleRec=on=>{document.body.classList.toggle('rec',on);requestAnimationFrame(resize);};
+  recBtn.onclick=()=>toggleRec(true);recExit.onclick=()=>toggleRec(false);
+  window.addEventListener('keydown',e=>{if(e.key==='Escape')toggleRec(false);});
+
+  resize();restart();
+})();
+</script>
+</body>
+</html>
