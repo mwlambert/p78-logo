@@ -73,6 +73,8 @@
         <input type="range" id="scale" min="0.2" max="3" step="0.05" value="1"></div>
       <div class="control"><label>Line weight <span class="v" id="lw-v">1.6</span></label>
         <input type="range" id="lw" min="0.4" max="6" step="0.1" value="1.6"></div>
+      <div class="control"><label>Wordmark size <span class="v" id="wm-v">35%</span></label>
+        <input type="range" id="wmsize" min="5" max="100" value="35"></div>
     </div>
     <div class="row">
       <button id="replay">↻ Replay reveal</button>
@@ -80,14 +82,17 @@
       <button id="resetview">⤾ Reset view</button>
       <button id="export">⤓ Export PNG</button>
       <button id="exportsvg">⤓ Export SVG</button>
+      <div class="spacer"></div>
+      <button id="rec">⤢ Recording mode</button>
+    </div>
+    <div class="row">
       <label><input type="checkbox" id="loop"> Loop</label>
       <label><input type="checkbox" id="sat" checked> Satellites</label>
       <label><input type="checkbox" id="fly" checked> Fly</label>
       <label><input type="checkbox" id="body"> Body</label>
       <label><input type="checkbox" id="occlude"> Occlusion</label>
       <label><input type="checkbox" id="stars"> Starfield</label>
-      <div class="spacer"></div>
-      <button id="rec">⤢ Recording mode</button>
+      <label><input type="checkbox" id="wm"> Wordmark</label>
     </div>
     <div class="hint">Each orbit is a true ellipse with the body at the focus. “Apogee spread” fans the far ends; high eccentricity knots the near ends → one-sided wave.</div>
   </div>
@@ -110,6 +115,15 @@
   const canvas=document.getElementById('c'),ctx=canvas.getContext('2d');
   let DPR=1,W=0,H=0;
   let panX=0,panY=0,zoom=1;        // designer view transform (drag + scale)
+
+  // P78 wordmark overlay (draggable, resizable)
+  let wmX=0,wmY=0,wmInit=false,draggingWm=false;
+  const WM_ASPECT=364/974;
+  const wmImgBlk=new Image(),wmImgWht=new Image();
+  wmImgBlk.src='img/p78-blk.svg';wmImgWht.src='img/p78-wht.svg';
+  let wmTextBlk='',wmTextWht='';
+  fetch('img/p78-blk.svg').then(r=>r.text()).then(t=>{wmTextBlk=t;}).catch(()=>{});
+  fetch('img/p78-wht.svg').then(r=>r.text()).then(t=>{wmTextWht=t;}).catch(()=>{});
   function resize(){
     DPR=Math.min(window.devicePixelRatio||1,2.5);
     const r=canvas.getBoundingClientRect();
@@ -244,6 +258,16 @@
   function vignette(){let v=ctx.createRadialGradient(W/2,H/2,Math.min(W,H)*0.35,W/2,H/2,Math.max(W,H)*0.72);
     v.addColorStop(0,'rgba(0,0,0,0)');v.addColorStop(1,'rgba(0,0,0,0.45)');ctx.fillStyle=v;ctx.fillRect(0,0,W,H);}
 
+  function wordmarkRect(){const w=(parseFloat(wmSizeEl.value)/100)*W;return {w,h:w*WM_ASPECT};}
+  function drawWordmark(){
+    if(!wmOnEl.checked)return;
+    const img=theme().flat?wmImgBlk:wmImgWht;
+    if(!img.complete||!img.naturalWidth)return;
+    if(!wmInit){wmX=W/2;wmY=H/2;wmInit=true;}
+    const {w,h}=wordmarkRect();
+    ctx.drawImage(img,wmX-w/2,wmY-h/2,w,h);
+  }
+
   function frame(now){
     if(!startT)startT=now;
     const dur=parseFloat(durEl.value),N=parseInt(numEl.value,10);
@@ -276,6 +300,7 @@
     }
 
     vignette();
+    drawWordmark();
     if(wall>=1&&loopEl.checked)startT=now;
     rafId=requestAnimationFrame(frame);
   }
@@ -284,12 +309,12 @@
   // ---------- UI ----------
   const $=id=>document.getElementById(id);
   const durEl=$('dur'),numEl=$('num'),eccEl=$('ecc'),incsEl=$('incs'),raansEl=$('raans'),
-        apodEl=$('apod'),aposEl=$('apos'),psiEl=$('psi'),rollEl=$('roll'),lwEl=$('lw');
-  const loopEl=$('loop'),satEl=$('sat'),flyEl=$('fly'),bodyEl=$('body'),occludeEl=$('occlude'),starsEl=$('stars');
+        apodEl=$('apod'),aposEl=$('apos'),psiEl=$('psi'),rollEl=$('roll'),lwEl=$('lw'),wmSizeEl=$('wmsize');
+  const loopEl=$('loop'),satEl=$('sat'),flyEl=$('fly'),bodyEl=$('body'),occludeEl=$('occlude'),starsEl=$('stars'),wmOnEl=$('wm');
   const fmt={dur:v=>v+'s',num:v=>v,ecc:v=>(+v).toFixed(2),incs:v=>v+'°',raans:v=>v+'°',
-    apod:v=>v+'°',apos:v=>v+'°',psi:v=>v+'°',roll:v=>v+'°',lw:v=>(+v).toFixed(1)};
+    apod:v=>v+'°',apos:v=>v+'°',psi:v=>v+'°',roll:v=>v+'°',lw:v=>(+v).toFixed(1),wmsize:v=>v+'%'};
   [['dur','dur-v'],['num','num-v'],['ecc','ecc-v'],['incs','incs-v'],['raans','raans-v'],
-   ['apod','apod-v'],['apos','apos-v'],['psi','psi-v'],['roll','roll-v'],['lw','lw-v']]
+   ['apod','apod-v'],['apos','apos-v'],['psi','psi-v'],['roll','roll-v'],['lw','lw-v'],['wmsize','wm-v']]
     .forEach(([id,lbl])=>{const el=$(id),out=$(lbl);const sync=()=>out.textContent=fmt[id](el.value);el.oninput=sync;sync();});
   durEl.addEventListener('input',restart);numEl.addEventListener('input',restart);
 
@@ -307,9 +332,18 @@
   $('resetview').onclick=()=>{panX=0;panY=0;zoom=1;syncScale();};
   let dragging=false,lastX=0,lastY=0;
   canvas.style.cursor='grab';
-  canvas.addEventListener('pointerdown',e=>{dragging=true;lastX=e.clientX;lastY=e.clientY;canvas.style.cursor='grabbing';canvas.setPointerCapture(e.pointerId);});
-  canvas.addEventListener('pointermove',e=>{if(!dragging)return;panX+=e.clientX-lastX;panY+=e.clientY-lastY;lastX=e.clientX;lastY=e.clientY;});
-  const endDrag=()=>{dragging=false;canvas.style.cursor='grab';};
+  function hitWm(mx,my){if(!wmOnEl.checked||!wmInit)return false;const {w,h}=wordmarkRect();return Math.abs(mx-wmX)<=w/2&&Math.abs(my-wmY)<=h/2;}
+  canvas.addEventListener('pointerdown',e=>{
+    const rect=canvas.getBoundingClientRect();
+    if(hitWm(e.clientX-rect.left,e.clientY-rect.top))draggingWm=true;else dragging=true;
+    lastX=e.clientX;lastY=e.clientY;canvas.style.cursor='grabbing';canvas.setPointerCapture(e.pointerId);
+  });
+  canvas.addEventListener('pointermove',e=>{
+    const dx=e.clientX-lastX,dy=e.clientY-lastY;
+    if(draggingWm){wmX+=dx;wmY+=dy;}else if(dragging){panX+=dx;panY+=dy;}else return;
+    lastX=e.clientX;lastY=e.clientY;
+  });
+  const endDrag=()=>{dragging=false;draggingWm=false;canvas.style.cursor='grab';};
   canvas.addEventListener('pointerup',endDrag);canvas.addEventListener('pointercancel',endDrag);
   canvas.addEventListener('wheel',e=>{e.preventDefault();
     const rect=canvas.getBoundingClientRect();
@@ -331,11 +365,15 @@
     let body='';
     if(bodyEl.checked&&!th.flat){const p=project(vp,0,0,0,0,roll);
       body=`<circle cx="${p.x.toFixed(2)}" cy="${p.y.toFixed(2)}" r="${(BODY*p.sf).toFixed(2)}" fill="#9a9a96"/>`;}
+    let wm='';
+    if(wmOnEl.checked){const txt=th.flat?wmTextBlk:wmTextWht;
+      if(txt){const {w,h}=wordmarkRect();const b64=btoa(unescape(encodeURIComponent(txt)));
+        wm=`<image x="${(wmX-w/2).toFixed(2)}" y="${(wmY-h/2).toFixed(2)}" width="${w.toFixed(2)}" height="${h.toFixed(2)}" href="data:image/svg+xml;base64,${b64}"/>`;}}
     const Wi=Math.round(W),Hi=Math.round(H);
     const svg=`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${Wi} ${Hi}" width="${Wi}" height="${Hi}">`
       +`<rect width="${Wi}" height="${Hi}" fill="${th.bgBot}"/>`
       +`<g fill="none" stroke="${th.line}" stroke-width="${lwpx}" stroke-linecap="round" stroke-linejoin="round">${paths}</g>`
-      +body+`</svg>`;
+      +body+wm+`</svg>`;
     const url=URL.createObjectURL(new Blob([svg],{type:'image/svg+xml'}));
     const a=document.createElement('a');a.href=url;a.download='p78-orbit.svg';a.click();
     setTimeout(()=>URL.revokeObjectURL(url),1000);

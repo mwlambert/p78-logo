@@ -1,12 +1,12 @@
-// Tiny live-reload dev server.
-// Serves files from this directory and auto-refreshes the browser when any
-// .html / .css / .js file changes. No dependencies.
+// Tiny live-reload dev server. Run from anywhere: `node scripts/dev-server.mjs`.
+// Serves the project root (parent of scripts/) and auto-refreshes the browser
+// when any .html / .css / .js file changes. No dependencies.
 import http from 'node:http';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-const ROOT = path.dirname(fileURLToPath(import.meta.url));
+const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const PORT = 5178;
 const DEFAULT_FILE = 'index.html';
 

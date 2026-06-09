@@ -1,14 +1,10 @@
-# Internal brand assets — not for public hosting
-P78 Brand Guidelines.html
-logo-socials.png
+# Local-only — not hosted (brand source files, guidelines, logo png)
+assets/
+
+# Superseded animation experiments — kept locally
+archive/
 
 # OS / editor cruft
 .DS_Store
 *.log
 node_modules/
-
-# superseded experiments — kept locally, not hosted
-orbit_animation_3d.html
-orbit_animation_phys.html
-orbit_animation_pro.html
-orbit_animation_v10_1.html
