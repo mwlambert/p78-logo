@@ -8,7 +8,7 @@ import { fileURLToPath } from 'node:url';
 
 const ROOT = path.dirname(fileURLToPath(import.meta.url));
 const PORT = 5178;
-const DEFAULT_FILE = 'orbit_animation_constellation.html';
+const DEFAULT_FILE = 'index.html';
 
 const clients = new Set();
 
