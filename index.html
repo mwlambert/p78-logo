@@ -738,11 +738,12 @@
 
   // built-in presets (range values; unspecified params keep current styling)
   const BUILTIN_GROUPS=[
-    ["Earth-Moon Transfer",{
-      "Transfer Orbit":     {num:2, ecc:0.97,incs:52,raans:29,apod:180,apos:78,sizespread:0.2},
-      "TLI Departure":      {num:29,ecc:0.97,incs:64,  raans:29,apod:180,apos:78,sizespread:0.5},
-      "Lunar Orbit":        {num:29,ecc:0.17,incs:18,  raans:29,apod:180,apos:78,sizespread:0.5},
-    }],
+    // retired: redundant with TLI Fan / LLO and the Sequence-mode missions
+    // ["Earth-Moon Transfer",{
+    //   "Transfer Orbit": {num:2, ecc:0.97,incs:52,raans:29,apod:180,apos:78,sizespread:0.2},
+    //   "TLI Departure":  {num:29,ecc:0.97,incs:64,raans:29,apod:180,apos:78,sizespread:0.5},
+    //   "Lunar Orbit":    {num:29,ecc:0.17,incs:18,raans:29,apod:180,apos:78,sizespread:0.5},
+    // }],
     ["Presets",{
       "TLI Fan ★":     {num:29,ecc:0.97,incs:47,  raans:29,apod:180,apos:55,sizespread:0,raanbias:0,incbias:0.35},
       "Moon around Earth":{num:29,ecc:0.055,incs:24,raans:340,apod:180,apos:8,sizespread:0,raanbias:0,incbias:0},
